@@ -1097,24 +1097,30 @@ do
 
         local ContainerLabel = Library:CreateLabel({
             TextXAlignment = Enum.TextXAlignment.Left;
-            Size = UDim2.new(1, -24, 1, 0);
+            Size = UDim2.new(1, -20, 1, 0);
             Position = UDim2.new(0, 0, 0, 0);
             TextSize = 13;
+            ClipsDescendants = true;
             ZIndex = 110;
             Parent = ContainerRow;
         },  true);
 
-        -- Mobile tap toggle button
+        -- Mobile tap toggle button (circle)
         local TapToggleBtn = Library:Create('TextButton', {
             AnchorPoint = Vector2.new(1, 0.5);
             BackgroundColor3 = Library.BackgroundColor;
             BorderColor3 = Library.OutlineColor;
-            Position = UDim2.new(1, 0, 0.5, 0);
-            Size = UDim2.new(0, 18, 0, 14);
+            Position = UDim2.new(1, -2, 0.5, 0);
+            Size = UDim2.new(0, 14, 0, 14);
             Text = '';
             AutoButtonColor = false;
             ZIndex = 111;
             Parent = ContainerRow;
+        });
+
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(0, 7);
+            Parent = TapToggleBtn;
         });
 
         Library:AddToRegistry(TapToggleBtn, {
@@ -1128,9 +1134,14 @@ do
             BackgroundTransparency = 1;
             BorderSizePixel = 0;
             Position = UDim2.new(0.5, 0, 0.5, 0);
-            Size = UDim2.new(0, 10, 0, 6);
+            Size = UDim2.new(0, 8, 0, 8);
             ZIndex = 112;
             Parent = TapToggleBtn;
+        });
+
+        Library:Create('UICorner', {
+            CornerRadius = UDim.new(0, 4);
+            Parent = TapToggleIndicator;
         });
 
         Library:AddToRegistry(TapToggleIndicator, {
@@ -1223,16 +1234,18 @@ do
             for _, Child in next, Library.KeybindContainer:GetChildren() do
                 if Child:IsA('Frame') and Child.Visible then
                     YSize = YSize + 18;
-                    -- Check inner label for text width
                     for _, Sub in next, Child:GetChildren() do
-                        if Sub:IsA('TextLabel') and Sub.TextBounds.X > XSize then
-                            XSize = Sub.TextBounds.X
+                        if Sub:IsA('TextLabel') and Sub.TextBounds then
+                            local w = Sub.TextBounds.X
+                            if w > XSize then
+                                XSize = w
+                            end
                         end
                     end
                 end;
             end;
 
-            Library.KeybindFrame.Size = UDim2.new(0, math.max(XSize + 38, 210), 0, YSize + 28)
+            Library.KeybindFrame.Size = UDim2.new(0, math.max(XSize + 40, 210), 0, YSize + 30)
         end;
 
         function KeyPicker:GetState()
@@ -2829,6 +2842,7 @@ do
         BorderColor3 = Color3.new(0, 0, 0);
         Position = UDim2.new(0, 10, 0.5, 0);
         Size = UDim2.new(0, 210, 0, 20);
+        ClipsDescendants = true;
         Visible = false;
         ZIndex = 100;
         Parent = ScreenGui;
@@ -3289,6 +3303,69 @@ do
         LBTooltip.Visible = false;
     end
 
+    -- Priority cycle levels (click circle to cycle)
+    Library.PriorityCycle = {
+        { Level = 0, Label = '', Color = Color3.fromRGB(128, 128, 128) },
+        { Level = 1, Label = 'Low', Color = Color3.fromRGB(100, 200, 255) },
+        { Level = 2, Label = 'Med', Color = Color3.fromRGB(255, 200, 50) },
+        { Level = 3, Label = 'Friend', Color = Color3.fromRGB(100, 255, 100) },
+        { Level = 4, Label = 'Threat', Color = Color3.fromRGB(255, 150, 50) },
+        { Level = 5, Label = 'Target', Color = Color3.fromRGB(255, 80, 80) },
+    };
+
+    function Library:GetPriorityCycleIndex(UserId)
+        local p = Library.PlayerPriorities[UserId];
+        if not p or p.Level == 0 then return 1 end
+        for i, entry in next, Library.PriorityCycle do
+            if entry.Level == p.Level then return i end
+        end
+        return 1
+    end
+
+    function Library:CyclePlayerPriority(Player)
+        local UserId = type(Player) == 'number' and Player or Player.UserId;
+        local idx = Library:GetPriorityCycleIndex(UserId);
+        idx = idx + 1;
+        if idx > #Library.PriorityCycle then idx = 1 end
+        local entry = Library.PriorityCycle[idx];
+        Library:SetPlayerPriority(UserId, entry.Level, entry.Label, entry.Color);
+        Library:SavePriorities();
+    end
+
+    function Library:SavePriorities()
+        pcall(function()
+            local httpService = game:GetService('HttpService');
+            local data = {};
+            for uid, p in next, Library.PlayerPriorities do
+                if p.Level > 0 then
+                    data[tostring(uid)] = { Level = p.Level, Label = p.Label, R = math.floor(p.Color.R * 255), G = math.floor(p.Color.G * 255), B = math.floor(p.Color.B * 255) };
+                end
+            end
+            if writefile then
+                writefile('LinoriaPriorities.json', httpService:JSONEncode(data));
+            end
+        end)
+    end
+
+    function Library:LoadPriorities()
+        pcall(function()
+            local httpService = game:GetService('HttpService');
+            if isfile and isfile('LinoriaPriorities.json') then
+                local raw = readfile('LinoriaPriorities.json');
+                local data = httpService:JSONDecode(raw);
+                for uid, p in next, data do
+                    Library.PlayerPriorities[tonumber(uid)] = {
+                        Level = p.Level or 0;
+                        Label = p.Label or '';
+                        Color = Color3.fromRGB(p.R or 128, p.G or 128, p.B or 128);
+                    };
+                end
+            end
+        end)
+    end
+
+    Library:LoadPriorities();
+
     function Library:UpdateLeaderboard()
         for _, child in next, LBScrolling:GetChildren() do
             if not child:IsA('UIListLayout') then
@@ -3314,7 +3391,8 @@ do
                 BackgroundColor3 = Library.BackgroundColor;
                 BackgroundTransparency = count % 2 == 0 and 0.5 or 0.8;
                 BorderSizePixel = 0;
-                Size = UDim2.new(1, 0, 0, 20);
+                Size = UDim2.new(1, 0, 0, 22);
+                Active = true;
                 ZIndex = 104;
                 Parent = LBScrolling;
             });
@@ -3323,25 +3401,36 @@ do
                 BackgroundColor3 = 'BackgroundColor';
             });
 
-            -- Team color dot
-            local teamColor = (player.Team and player.Team.TeamColor and player.Team.TeamColor.Color) or Color3.fromRGB(128, 128, 128);
-            Library:Create('Frame', {
+            -- Priority circle (clickable to cycle priority)
+            local priority = Library:GetPlayerPriority(player);
+            local dotColor = (priority and priority.Level > 0) and priority.Color
+                or (player.Team and player.Team.TeamColor and player.Team.TeamColor.Color)
+                or Color3.fromRGB(128, 128, 128);
+
+            local PriorityDot = Library:Create('TextButton', {
                 AnchorPoint = Vector2.new(0, 0.5);
-                BackgroundColor3 = teamColor;
+                BackgroundColor3 = dotColor;
                 BorderSizePixel = 0;
-                Position = UDim2.new(0, 8, 0.5, 0);
-                Size = UDim2.new(0, 8, 0, 8);
-                ZIndex = 105;
+                Position = UDim2.new(0, 6, 0.5, 0);
+                Size = UDim2.new(0, 10, 0, 10);
+                Text = '';
+                AutoButtonColor = false;
+                ZIndex = 106;
                 Parent = Row;
             });
 
             Library:Create('UICorner', {
-                CornerRadius = UDim.new(0, 4);
-                Parent = Row:FindFirstChildWhichIsA('Frame');
+                CornerRadius = UDim.new(0, 5);
+                Parent = PriorityDot;
             });
 
+            -- Click circle to cycle priority
+            PriorityDot.MouseButton1Click:Connect(function()
+                Library:CyclePlayerPriority(player);
+            end)
+
             -- Player name
-            local NameLabel = Library:CreateLabel({
+            Library:CreateLabel({
                 Position = UDim2.fromOffset(22, 0);
                 Size = UDim2.new(1, -80, 1, 0);
                 Text = player.DisplayName;
@@ -3351,26 +3440,24 @@ do
                 Parent = Row;
             });
 
-            -- Priority badge
-            local Priority = Library:GetPlayerPriority(player);
-            if Priority and Priority.Label ~= '' then
+            -- Priority badge or team name
+            if priority and priority.Label ~= '' then
                 Library:CreateLabel({
                     AnchorPoint = Vector2.new(1, 0.5);
-                    Position = UDim2.new(1, -8, 0.5, 0);
-                    Size = UDim2.new(0, 40, 0, 14);
-                    Text = Priority.Label;
+                    Position = UDim2.new(1, -6, 0.5, 0);
+                    Size = UDim2.new(0, 45, 0, 14);
+                    Text = priority.Label;
                     TextSize = 11;
-                    TextColor3 = Priority.Color;
+                    TextColor3 = priority.Color;
                     TextXAlignment = Enum.TextXAlignment.Right;
                     ZIndex = 105;
                     Parent = Row;
                 });
             else
-                -- Team name
                 local teamName = player.Team and player.Team.Name or '';
                 Library:CreateLabel({
                     AnchorPoint = Vector2.new(1, 0.5);
-                    Position = UDim2.new(1, -8, 0.5, 0);
+                    Position = UDim2.new(1, -6, 0.5, 0);
                     Size = UDim2.new(0, 50, 0, 14);
                     Text = teamName;
                     TextSize = 11;
@@ -3380,26 +3467,30 @@ do
                 });
             end
 
-            -- Hover events
+            -- Hover events for tooltip (Active = true makes hover reliable)
             local hovering = false;
-            Row.MouseEnter:Connect(function()
-                hovering = true;
-                task.spawn(function()
-                    ShowPlayerTooltip(player);
-                    while hovering and LBTooltip.Visible do
-                        LBTooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 10);
-                        RunService.Heartbeat:Wait();
-                    end
-                end)
+            Row.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseMovement then
+                    hovering = true;
+                    task.spawn(function()
+                        ShowPlayerTooltip(player);
+                        while hovering and LBTooltip.Visible do
+                            LBTooltip.Position = UDim2.fromOffset(Mouse.X + 15, Mouse.Y + 10);
+                            RunService.Heartbeat:Wait();
+                        end
+                    end)
+                end
             end)
 
-            Row.MouseLeave:Connect(function()
-                hovering = false;
-                HidePlayerTooltip();
+            Row.InputEnded:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseMovement then
+                    hovering = false;
+                    HidePlayerTooltip();
+                end
             end)
         end
 
-        LBScrolling.CanvasSize = UDim2.fromOffset(0, count * 20);
+        LBScrolling.CanvasSize = UDim2.fromOffset(0, count * 22);
     end
 
     Library.LeaderboardFrame = LeaderboardOuter;
@@ -3424,6 +3515,248 @@ do
             task.defer(Library.UpdateLeaderboard, Library);
         end
     end))
+
+    -- ========================
+    -- Chat Logger Widget
+    -- ========================
+    local ChatLogOuter = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0.5, 1);
+        BackgroundColor3 = Color3.new(0, 0, 0);
+        BorderColor3 = Color3.new(0, 0, 0);
+        Position = UDim2.new(0.5, 0, 1, -60);
+        Size = UDim2.new(0, 320, 0, 200);
+        Visible = false;
+        ZIndex = 100;
+        Parent = ScreenGui;
+    });
+
+    local ChatLogInner = Library:Create('Frame', {
+        BackgroundColor3 = Library.MainColor;
+        BorderColor3 = Library.OutlineColor;
+        BorderMode = Enum.BorderMode.Inset;
+        Size = UDim2.new(1, 0, 1, 0);
+        ZIndex = 101;
+        Parent = ChatLogOuter;
+    });
+
+    Library:AddToRegistry(ChatLogInner, {
+        BackgroundColor3 = 'MainColor';
+        BorderColor3 = 'OutlineColor';
+    }, true);
+
+    Library:Create('UIGradient', {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200))
+        });
+        Rotation = 90;
+        Parent = ChatLogInner;
+    });
+
+    -- Accent left bar
+    Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Size = UDim2.new(0, 2, 1, 0);
+        ZIndex = 105;
+        Parent = ChatLogInner;
+    });
+
+    -- Accent top bar
+    local ChatAccentTop = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Size = UDim2.new(1, 0, 0, 2);
+        ZIndex = 102;
+        Parent = ChatLogInner;
+    });
+
+    Library:AddToRegistry(ChatAccentTop, {
+        BackgroundColor3 = 'AccentColor';
+    }, true);
+
+    local ChatLogLabel = Library:CreateLabel({
+        Size = UDim2.new(1, -50, 0, 22);
+        Position = UDim2.fromOffset(8, 2),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Text = 'Chat Log';
+        TextSize = 15;
+        ZIndex = 104;
+        Parent = ChatLogInner;
+    });
+
+    -- Clear button
+    local ChatClearBtn = Library:Create('TextButton', {
+        AnchorPoint = Vector2.new(1, 0);
+        BackgroundColor3 = Library.BackgroundColor;
+        BorderColor3 = Library.OutlineColor;
+        Position = UDim2.new(1, -6, 0, 5);
+        Size = UDim2.new(0, 40, 0, 14);
+        Text = 'Clear';
+        Font = Library.Font;
+        TextSize = 11;
+        TextColor3 = Library.FontColor;
+        AutoButtonColor = false;
+        ZIndex = 105;
+        Parent = ChatLogInner;
+    });
+
+    Library:AddToRegistry(ChatClearBtn, {
+        BackgroundColor3 = 'BackgroundColor';
+        BorderColor3 = 'OutlineColor';
+        TextColor3 = 'FontColor';
+    }, true);
+
+    -- Header separator
+    Library:Create('Frame', {
+        BackgroundColor3 = Library.OutlineColor;
+        BorderSizePixel = 0;
+        Position = UDim2.new(0, 4, 0, 24);
+        Size = UDim2.new(1, -8, 0, 1);
+        ZIndex = 103;
+        Parent = ChatLogInner;
+    });
+
+    local ChatScrolling = Library:Create('ScrollingFrame', {
+        BackgroundTransparency = 1;
+        BorderSizePixel = 0;
+        Position = UDim2.new(0, 4, 0, 28);
+        Size = UDim2.new(1, -8, 1, -32);
+        CanvasSize = UDim2.new(0, 0, 0, 0);
+        AutomaticCanvasSize = Enum.AutomaticSize.Y;
+        TopImage = 'rbxasset://textures/ui/Scroll/scroll-middle.png';
+        BottomImage = 'rbxasset://textures/ui/Scroll/scroll-middle.png';
+        ScrollBarThickness = 3;
+        ScrollBarImageColor3 = Library.AccentColor;
+        ZIndex = 103;
+        Parent = ChatLogInner;
+    });
+
+    Library:AddToRegistry(ChatScrolling, {
+        ScrollBarImageColor3 = 'AccentColor';
+    }, true);
+
+    Library:Create('UIListLayout', {
+        FillDirection = Enum.FillDirection.Vertical;
+        SortOrder = Enum.SortOrder.LayoutOrder;
+        Padding = UDim.new(0, 1);
+        Parent = ChatScrolling;
+    });
+
+    Library:Create('UIPadding', {
+        PaddingLeft = UDim.new(0, 4);
+        PaddingRight = UDim.new(0, 2);
+        PaddingTop = UDim.new(0, 2);
+        Parent = ChatScrolling;
+    });
+
+    local ChatLogMessages = {};
+    local ChatLogMaxMessages = 200;
+    local ChatLogOrder = 0;
+
+    local function AddChatMessage(playerName, message, teamColor)
+        ChatLogOrder = ChatLogOrder + 1;
+        local timestamp = os.date('%H:%M:%S');
+        local displayColor = teamColor or Library.FontColor;
+
+        local MsgFrame = Library:Create('Frame', {
+            BackgroundTransparency = 1;
+            Size = UDim2.new(1, 0, 0, 16);
+            LayoutOrder = ChatLogOrder;
+            ZIndex = 104;
+            Parent = ChatScrolling;
+        });
+
+        -- Timestamp
+        Library:CreateLabel({
+            Size = UDim2.new(0, 50, 1, 0);
+            Position = UDim2.new(0, 0, 0, 0);
+            Text = timestamp;
+            TextSize = 11;
+            TextColor3 = Color3.fromRGB(150, 150, 150);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            ZIndex = 105;
+            Parent = MsgFrame;
+        });
+
+        -- Player name
+        local nameLabel = Library:CreateLabel({
+            Size = UDim2.new(0, 70, 1, 0);
+            Position = UDim2.new(0, 52, 0, 0);
+            Text = playerName .. ':';
+            TextSize = 12;
+            TextColor3 = displayColor;
+            TextXAlignment = Enum.TextXAlignment.Left;
+            ClipsDescendants = true;
+            ZIndex = 105;
+            Parent = MsgFrame;
+        });
+
+        -- Remove from registry so it stays custom colored
+        Library:RemoveFromRegistry(nameLabel);
+
+        -- Message text
+        Library:CreateLabel({
+            Size = UDim2.new(1, -126, 1, 0);
+            Position = UDim2.new(0, 124, 0, 0);
+            Text = message;
+            TextSize = 12;
+            TextXAlignment = Enum.TextXAlignment.Left;
+            TextTruncate = Enum.TextTruncate.AtEnd;
+            ZIndex = 105;
+            Parent = MsgFrame;
+        });
+
+        table.insert(ChatLogMessages, MsgFrame);
+
+        -- Trim old messages
+        if #ChatLogMessages > ChatLogMaxMessages then
+            local old = table.remove(ChatLogMessages, 1);
+            if old and old.Parent then old:Destroy() end
+        end
+
+        -- Auto-scroll to bottom
+        task.defer(function()
+            ChatScrolling.CanvasPosition = Vector2.new(0, ChatScrolling.AbsoluteCanvasSize.Y);
+        end)
+    end
+
+    -- Clear button handler
+    ChatClearBtn.MouseButton1Click:Connect(function()
+        for _, msg in next, ChatLogMessages do
+            if msg and msg.Parent then msg:Destroy() end
+        end
+        ChatLogMessages = {};
+        ChatLogOrder = 0;
+    end)
+
+    -- Listen to all players chatting
+    local function ConnectPlayerChat(player)
+        Library:GiveSignal(player.Chatted:Connect(function(message)
+            if not ChatLogOuter.Visible then return end
+            local teamColor = (player.Team and player.Team.TeamColor and player.Team.TeamColor.Color) or nil;
+            AddChatMessage(player.DisplayName, message, teamColor);
+        end))
+    end
+
+    for _, player in next, Players:GetPlayers() do
+        ConnectPlayerChat(player);
+    end
+
+    Library:GiveSignal(Players.PlayerAdded:Connect(function(player)
+        ConnectPlayerChat(player);
+    end))
+
+    Library.ChatLogFrame = ChatLogOuter;
+    Library:MakeDraggable(ChatLogOuter);
+
+    function Library:SetChatLogVisibility(Bool)
+        ChatLogOuter.Visible = Bool;
+    end
+
+    function Library:AddChatMessage(playerName, message, teamColor)
+        AddChatMessage(playerName, message, teamColor);
+    end
 
 end;
 
@@ -3603,10 +3936,10 @@ function Library:CreateWindow(...)
         AnchorPoint = Vector2.new(0.5, 0.5);
         BackgroundTransparency = 1;
         Position = UDim2.new(0.5, 0, 0.5, 0);
-        Size = UDim2.new(1, 40, 1, 40);
+        Size = UDim2.new(1, 70, 1, 70);
         Image = 'rbxassetid://5554236805';
         ImageColor3 = Library.AccentColor;
-        ImageTransparency = 0.82;
+        ImageTransparency = 0.7;
         ScaleType = Enum.ScaleType.Slice;
         SliceCenter = Rect.new(23, 23, 277, 277);
         ZIndex = 0;
