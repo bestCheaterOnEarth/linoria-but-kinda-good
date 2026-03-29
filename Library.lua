@@ -1221,7 +1221,11 @@ do
 
             ContainerLabel.Text = string.format('[%s] %s (%s)', KeyPicker.Value, Info.Text, KeyPicker.Mode);
 
-            ContainerRow.Visible = true;
+            if KeyPicker.Value == 'None' then
+                ContainerRow.Visible = false;
+            else
+                ContainerRow.Visible = true;
+            end
             ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor;
 
             Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and 'AccentColor' or 'FontColor';
@@ -1331,6 +1335,9 @@ do
 
                     if Input.UserInputType == Enum.UserInputType.Keyboard then
                         Key = Input.KeyCode.Name;
+                        if Key == 'Backspace' then
+                            Key = 'None'
+                        end
                     elseif Input.UserInputType == Enum.UserInputType.MouseButton1 then
                         Key = 'MB1';
                     elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -3305,11 +3312,7 @@ do
     -- Priority cycle levels (click circle to cycle)
     Library.PriorityCycle = {
         { Level = 0, Label = '', Color = Color3.fromRGB(128, 128, 128) },
-        { Level = 1, Label = 'Low', Color = Color3.fromRGB(100, 200, 255) },
-        { Level = 2, Label = 'Med', Color = Color3.fromRGB(255, 200, 50) },
-        { Level = 3, Label = 'Friend', Color = Color3.fromRGB(100, 255, 100) },
-        { Level = 4, Label = 'Threat', Color = Color3.fromRGB(255, 150, 50) },
-        { Level = 5, Label = 'Target', Color = Color3.fromRGB(255, 80, 80) },
+        { Level = 1, Label = 'Friend', Color = Color3.fromRGB(100, 255, 100) }
     };
 
     function Library:GetPriorityCycleIndex(UserId)
