@@ -1,6 +1,4 @@
--- LinoriaLib Boilerplate / UI Showcase
--- This script contains no game-specific exploits or ESP modifications.
--- It strictly highlights the frontend UI capabilities available to the user.
+-- atlanta mixed with linoria
 
 local repo = 'https://raw.githubusercontent.com/christianfbi19/linoria-but-kinda-good/refs/heads/main/'
 
@@ -25,10 +23,8 @@ local Tabs = {
     Settings = Window:AddTab('UI Settings')
 }
 
--- ==========================================
--- SHOWCASE TAB
--- ==========================================
 
+--tab
 local TogglesBox = Tabs.Main:AddLeftGroupbox('Toggles & Inputs')
 
 TogglesBox:AddToggle('ExampleToggle', {
@@ -138,10 +134,7 @@ local Tab2 = ExampleTabbox:AddTab('Nested Tab 2')
 Tab1:AddToggle('NestedToggle1', { Text = 'Nested Toggle', Default = false })
 Tab2:AddSlider('NestedSlider2', { Text = 'Nested Slider', Default = 10, Min = 0, Max = 20, Rounding = 0 })
 
--- ==========================================
--- UI SETTINGS TAB
--- ==========================================
-
+-- ui settings
 local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu')
 
 MenuGroup:AddButton({
@@ -199,10 +192,6 @@ WidgetsBox:AddButton({
         Library:Notify('Refreshed visual widgets', 2)
     end,
 })
-
--- ==========================================
--- SCRIPT INITIALIZATION
--- ==========================================
 
 Library:SetWatermarkVisibility(true)
 
