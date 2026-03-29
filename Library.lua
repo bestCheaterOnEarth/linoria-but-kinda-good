@@ -3517,6 +3517,192 @@ do
     end))
 
     -- ========================
+    -- Viewmodel Widget
+    -- ========================
+    local ViewmodelOuter = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0, 1);
+        BackgroundColor3 = Color3.new(0, 0, 0);
+        BorderColor3 = Color3.new(0, 0, 0);
+        Position = UDim2.new(0, 10, 1, -60);
+        Size = UDim2.new(0, 180, 0, 220);
+        Visible = false;
+        ZIndex = 100;
+        Parent = ScreenGui;
+    });
+
+    local ViewmodelInner = Library:Create('Frame', {
+        BackgroundColor3 = Library.MainColor;
+        BorderColor3 = Library.OutlineColor;
+        BorderMode = Enum.BorderMode.Inset;
+        Size = UDim2.new(1, 0, 1, 0);
+        ZIndex = 101;
+        Parent = ViewmodelOuter;
+    });
+
+    Library:AddToRegistry(ViewmodelInner, {
+        BackgroundColor3 = 'MainColor';
+        BorderColor3 = 'OutlineColor';
+    }, true);
+
+    Library:Create('UIGradient', {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200))
+        });
+        Rotation = 90;
+        Parent = ViewmodelInner;
+    });
+
+    -- accent top
+    local VMAccent = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Size = UDim2.new(1, 0, 0, 2);
+        ZIndex = 102;
+        Parent = ViewmodelInner;
+    });
+
+    Library:AddToRegistry(VMAccent, {
+        BackgroundColor3 = 'AccentColor';
+    }, true);
+
+    Library:CreateLabel({
+        Size = UDim2.new(1, -45, 0, 22);
+        Position = UDim2.fromOffset(8, 2),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Text = 'Viewmodel';
+        TextSize = 15;
+        ZIndex = 104;
+        Parent = ViewmodelInner;
+    });
+
+    -- refresh button
+    local VMRefreshBtn = Library:Create('TextButton', {
+        AnchorPoint = Vector2.new(1, 0);
+        BackgroundColor3 = Library.BackgroundColor;
+        BorderColor3 = Library.OutlineColor;
+        Position = UDim2.new(1, -6, 0, 5);
+        Size = UDim2.new(0, 16, 0, 14);
+        Text = '↻';
+        Font = Enum.Font.Gotham;
+        TextSize = 12;
+        TextColor3 = Library.FontColor;
+        AutoButtonColor = false;
+        ZIndex = 105;
+        Parent = ViewmodelInner;
+    });
+
+    Library:AddToRegistry(VMRefreshBtn, {
+        BackgroundColor3 = 'BackgroundColor';
+        BorderColor3 = 'OutlineColor';
+        TextColor3 = 'FontColor';
+    }, true);
+
+    -- separator
+    Library:Create('Frame', {
+        BackgroundColor3 = Library.OutlineColor;
+        BorderSizePixel = 0;
+        Position = UDim2.new(0, 4, 0, 24);
+        Size = UDim2.new(1, -8, 0, 1);
+        ZIndex = 103;
+        Parent = ViewmodelInner;
+    });
+
+    -- viewport
+    local VMViewport = Library:Create('ViewportFrame', {
+        BackgroundColor3 = Library.BackgroundColor;
+        BorderSizePixel = 0;
+        Position = UDim2.new(0, 4, 0, 28);
+        Size = UDim2.new(1, -8, 1, -32);
+        Ambient = Color3.fromRGB(200, 200, 200);
+        LightColor = Color3.fromRGB(255, 255, 255);
+        LightDirection = Vector3.new(-1, -1, -1);
+        ZIndex = 103;
+        Parent = ViewmodelInner;
+    });
+
+    Library:AddToRegistry(VMViewport, {
+        BackgroundColor3 = 'BackgroundColor';
+    }, true);
+
+    local VMCamera = Instance.new('Camera');
+    VMCamera.FieldOfView = 50;
+    VMCamera.Parent = VMViewport;
+    VMViewport.CurrentCamera = VMCamera;
+
+    -- clone character into viewport
+    -- also returns the model so scripts can attach highlights/chams
+    Library.ViewmodelModel = nil;
+
+    function Library:RefreshViewmodel()
+        -- clear old
+        for _, child in next, VMViewport:GetChildren() do
+            if child:IsA('Model') or child:IsA('Highlight') then
+                child:Destroy();
+            end
+        end
+
+        local player = Players.LocalPlayer;
+        local character = player and player.Character;
+        if not character then return end
+
+        pcall(function()
+            local clone = character:Clone();
+            -- strip scripts and unnecessary stuff
+            for _, desc in next, clone:GetDescendants() do
+                if desc:IsA('BaseScript') or desc:IsA('LocalScript') or desc:IsA('Sound') then
+                    desc:Destroy();
+                end
+            end
+            clone.Parent = VMViewport;
+            Library.ViewmodelModel = clone;
+
+            -- position camera to look at the clone
+            local hrp = clone:FindFirstChild('HumanoidRootPart');
+            if hrp then
+                local cf = hrp.CFrame;
+                VMCamera.CFrame = CFrame.new(cf.Position + Vector3.new(0, 1.5, 6), cf.Position + Vector3.new(0, 0.5, 0));
+            end
+        end)
+    end
+
+    VMRefreshBtn.MouseButton1Click:Connect(function()
+        Library:RefreshViewmodel();
+    end)
+
+    -- hooks for esp/chams: call these to add visuals to the viewmodel
+    function Library:AddViewmodelHighlight(Props)
+        if not Library.ViewmodelModel then return nil end
+        local highlight = Instance.new('Highlight');
+        highlight.Adornee = Library.ViewmodelModel;
+        highlight.FillColor = Props and Props.FillColor or Library.AccentColor;
+        highlight.FillTransparency = Props and Props.FillTransparency or 0.5;
+        highlight.OutlineColor = Props and Props.OutlineColor or Color3.new(1, 1, 1);
+        highlight.OutlineTransparency = Props and Props.OutlineTransparency or 0;
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop;
+        highlight.Parent = VMViewport;
+        return highlight;
+    end
+
+    function Library:ClearViewmodelHighlights()
+        for _, child in next, VMViewport:GetChildren() do
+            if child:IsA('Highlight') then
+                child:Destroy();
+            end
+        end
+    end
+
+    Library.ViewmodelFrame = ViewmodelOuter;
+    Library:MakeDraggable(ViewmodelOuter);
+
+    function Library:SetViewmodelVisibility(Bool)
+        ViewmodelOuter.Visible = Bool;
+        if Bool then
+            Library:RefreshViewmodel();
+        end
+    end
+
+    -- ========================
     -- Chat Logger Widget
     -- ========================
     local ChatLogOuter = Library:Create('Frame', {
@@ -3679,21 +3865,20 @@ do
             Parent = MsgFrame;
         });
 
-        -- Player name
-        local nameLabel = Library:CreateLabel({
+        -- Player name (not registered so it keeps custom color)
+        Library:Create('TextLabel', {
             Size = UDim2.new(0, 70, 1, 0);
             Position = UDim2.new(0, 52, 0, 0);
             Text = playerName .. ':';
+            Font = Library.Font;
             TextSize = 12;
             TextColor3 = displayColor;
             TextXAlignment = Enum.TextXAlignment.Left;
             ClipsDescendants = true;
+            BackgroundTransparency = 1;
             ZIndex = 105;
             Parent = MsgFrame;
         });
-
-        -- Remove from registry so it stays custom colored
-        Library:RemoveFromRegistry(nameLabel);
 
         -- Message text
         Library:CreateLabel({
@@ -3831,8 +4016,8 @@ function Library:Notify(Text, Time)
     });
 
     local NotifyLabel = Library:CreateLabel({
-        Position = UDim2.new(0, 4, 0, 0);
-        Size = UDim2.new(1, -4, 1, 0);
+        Position = UDim2.new(0, 0, 0, 0);
+        Size = UDim2.new(1, 0, 1, 0);
         Text = Text;
         TextXAlignment = Enum.TextXAlignment.Center;
         TextTransparency = 1;
@@ -3929,25 +4114,6 @@ function Library:CreateWindow(...)
         Visible = false;
         ZIndex = 1;
         Parent = ScreenGui;
-    });
-
-    -- Subtle outer glow
-    local OuterGlow = Library:Create('ImageLabel', {
-        AnchorPoint = Vector2.new(0.5, 0.5);
-        BackgroundTransparency = 1;
-        Position = UDim2.new(0.5, 0, 0.5, 0);
-        Size = UDim2.new(1, 70, 1, 70);
-        Image = 'rbxassetid://5554236805';
-        ImageColor3 = Library.AccentColor;
-        ImageTransparency = 0.7;
-        ScaleType = Enum.ScaleType.Slice;
-        SliceCenter = Rect.new(23, 23, 277, 277);
-        ZIndex = 0;
-        Parent = Outer;
-    });
-
-    Library:AddToRegistry(OuterGlow, {
-        ImageColor3 = 'AccentColor';
     });
 
     Library:MakeDraggable(Outer, 25);
