@@ -2233,7 +2233,7 @@ do
         if Info.SpecialType == 'Player' then
             Info.Values = GetPlayersString();
             Info.AllowNull = true;
-        elseif Info.SpecialType == 'Team' then
+        elseif Info.SpecialType == 'Priority' then
             Info.Values = GetTeamsString();
             Info.AllowNull = true;
         end;
