@@ -1153,10 +1153,11 @@ do
                 KeyPicker.Toggled = not KeyPicker.Toggled;
                 KeyPicker:DoClick();
             elseif KeyPicker.Mode == 'Always' then
-                -- Already always on, do nothing
+                -- always on, nothing to do
             elseif KeyPicker.Mode == 'Hold' then
-                -- Simulate a quick toggle for hold mode on mobile
-                KeyPicker.Toggled = not KeyPicker.Toggled;
+                -- on mobile tap, act as a sticky toggle instead of hold
+                KeyPicker.TapHoldActive = not KeyPicker.TapHoldActive;
+                KeyPicker.Toggled = KeyPicker.TapHoldActive;
                 KeyPicker:DoClick();
             end
             KeyPicker:Update();
@@ -2842,7 +2843,6 @@ do
         BorderColor3 = Color3.new(0, 0, 0);
         Position = UDim2.new(0, 10, 0.5, 0);
         Size = UDim2.new(0, 210, 0, 20);
-        ClipsDescendants = true;
         Visible = false;
         ZIndex = 100;
         Parent = ScreenGui;
@@ -3698,6 +3698,73 @@ do
         Library:RefreshViewmodel();
     end)
 
+    -- viewmodel camera controls (drag to rotate, scroll to zoom)
+    local vmDragging = false;
+    local vmLastMouse = Vector2.new(0, 0);
+    local vmAngleX = 0.4;  -- initial rotation
+    local vmAngleY = 0.3;
+    local vmDistance = 7;
+    local vmFocusOffset = Vector3.new(0, 0, 0);
+
+    local function UpdateVMCamera()
+        if not Library.ViewmodelModel then return end
+        local pivot;
+        local hrp = Library.ViewmodelModel:FindFirstChild('HumanoidRootPart');
+        local head = Library.ViewmodelModel:FindFirstChild('Head');
+        pivot = hrp or head;
+        if not pivot then return end
+
+        local target = pivot.Position + vmFocusOffset;
+        local camPos = target + Vector3.new(
+            math.sin(vmAngleX) * math.cos(vmAngleY) * vmDistance,
+            math.sin(vmAngleY) * vmDistance,
+            math.cos(vmAngleX) * math.cos(vmAngleY) * vmDistance
+        );
+        VMCamera.CFrame = CFrame.new(camPos, target);
+    end
+
+    VMViewport.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            vmDragging = true;
+            vmLastMouse = Vector2.new(input.Position.X, input.Position.Y);
+        end
+    end)
+
+    VMViewport.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            vmDragging = false;
+        end
+    end)
+
+    VMViewport.InputChanged:Connect(function(input)
+        if vmDragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local currentMouse = Vector2.new(input.Position.X, input.Position.Y);
+            local delta = currentMouse - vmLastMouse;
+            vmAngleX = vmAngleX - delta.X * 0.01;
+            vmAngleY = math.clamp(vmAngleY + delta.Y * 0.01, -1.2, 1.2);
+            vmLastMouse = currentMouse;
+            UpdateVMCamera();
+        end
+        if input.UserInputType == Enum.UserInputType.MouseWheel then
+            vmDistance = math.clamp(vmDistance - input.Position.Z * 0.8, 2, 20);
+            UpdateVMCamera();
+        end
+    end)
+
+    -- override RefreshViewmodel to use orbiting camera after clone
+    local _origRefresh = Library.RefreshViewmodel;
+    function Library:RefreshViewmodel()
+        _origRefresh(Library);
+        -- reset orbit and position camera
+        vmAngleX = 0.4;
+        vmAngleY = 0.3;
+        vmDistance = 7;
+        UpdateVMCamera();
+    end
+
     -- hooks for esp/chams: call these to add visuals to the viewmodel
     function Library:AddViewmodelHighlight(Props)
         if not Library.ViewmodelModel then return nil end
@@ -3868,22 +3935,35 @@ do
     local ChatLogMaxMessages = 200;
     local ChatLogOrder = 0;
 
-    local function AddChatMessage(playerName, message, teamColor)
+    local function AddChatMessage(playerObj, playerName, message, teamColor)
         ChatLogOrder = ChatLogOrder + 1;
         local timestamp = os.date('%H:%M:%S');
+
+        -- check priority color first, then team, then default
         local displayColor = teamColor or Library.FontColor;
+        if playerObj then
+            local priority = Library:GetPlayerPriority(playerObj);
+            if priority and priority.Level > 0 and priority.Color then
+                displayColor = priority.Color;
+            end
+        end
+
+        -- calculate message height for wrapping
+        local msgWidth = 300 - 126; -- approximate available width
+        local _, textH = Library:GetTextBounds(message, Library.Font, 12, Vector2.new(msgWidth, 9999));
+        local rowHeight = math.max(16, textH + 4);
 
         local MsgFrame = Library:Create('Frame', {
             BackgroundTransparency = 1;
-            Size = UDim2.new(1, 0, 0, 16);
+            Size = UDim2.new(1, 0, 0, rowHeight);
             LayoutOrder = ChatLogOrder;
             ZIndex = 104;
             Parent = ChatScrolling;
         });
 
-        -- Timestamp
+        -- timestamp
         Library:CreateLabel({
-            Size = UDim2.new(0, 50, 1, 0);
+            Size = UDim2.new(0, 50, 0, 16);
             Position = UDim2.new(0, 0, 0, 0);
             Text = timestamp;
             TextSize = 11;
@@ -3893,9 +3973,9 @@ do
             Parent = MsgFrame;
         });
 
-        -- Player name (not registered so it keeps custom color)
+        -- player name (not registered so it keeps custom color)
         Library:Create('TextLabel', {
-            Size = UDim2.new(0, 70, 1, 0);
+            Size = UDim2.new(0, 70, 0, 16);
             Position = UDim2.new(0, 52, 0, 0);
             Text = playerName .. ':';
             Font = Library.Font;
@@ -3908,27 +3988,28 @@ do
             Parent = MsgFrame;
         });
 
-        -- Message text
+        -- message text (wraps to new lines)
         Library:CreateLabel({
-            Size = UDim2.new(1, -126, 1, 0);
+            Size = UDim2.new(1, -126, 0, rowHeight);
             Position = UDim2.new(0, 124, 0, 0);
             Text = message;
             TextSize = 12;
+            TextWrapped = true;
             TextXAlignment = Enum.TextXAlignment.Left;
-            TextTruncate = Enum.TextTruncate.AtEnd;
+            TextYAlignment = Enum.TextYAlignment.Top;
             ZIndex = 105;
             Parent = MsgFrame;
         });
 
         table.insert(ChatLogMessages, MsgFrame);
 
-        -- Trim old messages
+        -- trim old
         if #ChatLogMessages > ChatLogMaxMessages then
             local old = table.remove(ChatLogMessages, 1);
             if old and old.Parent then old:Destroy() end
         end
 
-        -- Auto-scroll to bottom
+        -- auto-scroll
         task.defer(function()
             ChatScrolling.CanvasPosition = Vector2.new(0, ChatScrolling.AbsoluteCanvasSize.Y);
         end)
@@ -3943,12 +4024,12 @@ do
         ChatLogOrder = 0;
     end)
 
-    -- Listen to all players chatting
+    -- listen to chat
     local function ConnectPlayerChat(player)
         Library:GiveSignal(player.Chatted:Connect(function(message)
             if not ChatLogOuter.Visible then return end
             local teamColor = (player.Team and player.Team.TeamColor and player.Team.TeamColor.Color) or nil;
-            AddChatMessage(player.DisplayName, message, teamColor);
+            AddChatMessage(player, player.DisplayName, message, teamColor);
         end))
     end
 
@@ -3968,10 +4049,195 @@ do
     end
 
     function Library:AddChatMessage(playerName, message, teamColor)
-        AddChatMessage(playerName, message, teamColor);
+        AddChatMessage(nil, playerName, message, teamColor);
     end
 
 end;
+
+-- loader screen: shows game icon, name, and support status before the main ui
+function Library:ShowLoader(Config, Callback)
+    -- Config = { Title, SupportedGames = { [placeId] = "Game Name", ... } }
+    Config = Config or {};
+    Config.Title = Config.Title or 'pretty.win';
+    Config.SupportedGames = Config.SupportedGames or {};
+
+    local ScreenGui = Library.ScreenGui;
+    local TweenService = game:GetService('TweenService');
+    local MarketplaceService = game:GetService('MarketplaceService');
+
+    local placeId = game.PlaceId;
+    local isSupported = Config.SupportedGames[placeId] ~= nil;
+    local gameName = Config.SupportedGames[placeId] or 'Unknown Game';
+
+    -- try to get real game info
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(placeId);
+        if info and info.Name then
+            if not isSupported then
+                gameName = info.Name;
+            end
+        end
+    end)
+
+    -- get game icon
+    local gameIcon = '';
+    pcall(function()
+        gameIcon = ('https://www.roblox.com/asset-thumbnail/image?assetId=%d&width=256&height=256&format=Png'):format(placeId);
+    end)
+    -- fallback: use thumbs api
+    pcall(function()
+        local thumbUrl = ('rbxthumb://type=GameIcon&id=%d&w=256&h=256'):format(game.GameId ~= 0 and game.GameId or placeId);
+        gameIcon = thumbUrl;
+    end)
+
+    -- overlay
+    local LoaderOverlay = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0.5, 0.5);
+        BackgroundColor3 = Color3.fromRGB(15, 15, 15);
+        BorderSizePixel = 0;
+        Position = UDim2.new(0.5, 0, 0.5, 0);
+        Size = UDim2.new(1, 0, 1, 0);
+        ZIndex = 500;
+        Parent = ScreenGui;
+    });
+
+    -- center container
+    local LoaderBox = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0.5, 0.5);
+        BackgroundTransparency = 1;
+        Position = UDim2.new(0.5, 0, 0.5, 0);
+        Size = UDim2.fromOffset(220, 260);
+        ZIndex = 501;
+        Parent = LoaderOverlay;
+    });
+
+    -- title
+    Library:Create('TextLabel', {
+        AnchorPoint = Vector2.new(0.5, 0);
+        BackgroundTransparency = 1;
+        Position = UDim2.new(0.5, 0, 0, 0);
+        Size = UDim2.new(1, 0, 0, 30);
+        Text = Config.Title;
+        Font = Library.Font;
+        TextSize = 22;
+        TextColor3 = Library.AccentColor;
+        ZIndex = 502;
+        Parent = LoaderBox;
+    });
+
+    -- game icon
+    local IconFrame = Library:Create('ImageLabel', {
+        AnchorPoint = Vector2.new(0.5, 0);
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30);
+        BorderSizePixel = 0;
+        Position = UDim2.new(0.5, 0, 0, 40);
+        Size = UDim2.fromOffset(128, 128);
+        Image = gameIcon;
+        ZIndex = 502;
+        Parent = LoaderBox;
+    });
+
+    Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, 8);
+        Parent = IconFrame;
+    });
+
+    -- game name
+    Library:Create('TextLabel', {
+        AnchorPoint = Vector2.new(0.5, 0);
+        BackgroundTransparency = 1;
+        Position = UDim2.new(0.5, 0, 0, 178);
+        Size = UDim2.new(1, 0, 0, 24);
+        Text = gameName;
+        Font = Library.Font;
+        TextSize = 16;
+        TextColor3 = Color3.new(1, 1, 1);
+        ZIndex = 502;
+        Parent = LoaderBox;
+    });
+
+    -- support status
+    local statusColor = isSupported and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 80, 80);
+    local statusText = isSupported and '✓ Supported' or '✗ Not Supported';
+
+    Library:Create('TextLabel', {
+        AnchorPoint = Vector2.new(0.5, 0);
+        BackgroundTransparency = 1;
+        Position = UDim2.new(0.5, 0, 0, 205);
+        Size = UDim2.new(1, 0, 0, 20);
+        Text = statusText;
+        Font = Library.Font;
+        TextSize = 14;
+        TextColor3 = statusColor;
+        ZIndex = 502;
+        Parent = LoaderBox;
+    });
+
+    -- loading bar
+    local BarBg = Library:Create('Frame', {
+        AnchorPoint = Vector2.new(0.5, 0);
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40);
+        BorderSizePixel = 0;
+        Position = UDim2.new(0.5, 0, 0, 235);
+        Size = UDim2.fromOffset(180, 4);
+        ZIndex = 502;
+        Parent = LoaderBox;
+    });
+
+    Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, 2);
+        Parent = BarBg;
+    });
+
+    local BarFill = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Size = UDim2.new(0, 0, 1, 0);
+        ZIndex = 503;
+        Parent = BarBg;
+    });
+
+    Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, 2);
+        Parent = BarFill;
+    });
+
+    -- animate bar
+    local fillTween = TweenService:Create(BarFill,
+        TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { Size = UDim2.new(1, 0, 1, 0) }
+    );
+    fillTween:Play();
+
+    -- fade out after done
+    task.delay(2.5, function()
+        local fadeOut = TweenService:Create(LoaderOverlay,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 1 }
+        );
+        fadeOut:Play();
+
+        -- fade all children
+        for _, desc in next, LoaderOverlay:GetDescendants() do
+            pcall(function()
+                if desc:IsA('TextLabel') then
+                    TweenService:Create(desc, TweenInfo.new(0.4), { TextTransparency = 1 }):Play();
+                elseif desc:IsA('ImageLabel') then
+                    TweenService:Create(desc, TweenInfo.new(0.4), { ImageTransparency = 1, BackgroundTransparency = 1 }):Play();
+                elseif desc:IsA('Frame') then
+                    TweenService:Create(desc, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play();
+                end
+            end)
+        end
+
+        task.delay(0.6, function()
+            LoaderOverlay:Destroy();
+            if Callback then
+                Callback(isSupported);
+            end
+        end)
+    end)
+end
 
 function Library:SetWatermarkVisibility(Bool)
     Library.Watermark.Visible = Bool;
