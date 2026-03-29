@@ -1,16 +1,19 @@
--- example for the modified linoria lib
--- shows off title splitting, widgets, keybind mobile buttons, etc.
+-- LinoriaLib Boilerplate / UI Showcase
+-- This script contains no game-specific exploits or ESP modifications.
+-- It strictly highlights the frontend UI capabilities available to the user.
 
 local repo = 'https://raw.githubusercontent.com/christianfbi19/linoria-but-kinda-good/refs/heads/main/'
 
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'SaveManager.lua'))()
+local function get(file)
+    return game:HttpGet(repo .. file .. '?v=' .. tostring(tick()))
+end
 
--- setup window
--- title can be a string or a table. table lets you color part of it
+local Library = loadstring(get('Library.lua'))()
+local ThemeManager = loadstring(get('ThemeManager.lua'))()
+local SaveManager = loadstring(get('SaveManager.lua'))()
+
 local Window = Library:CreateWindow({
-    Title = { Accent = 'pretty', Rest = '.win' },
+    Title = { Accent = 'linoria', Rest = ' UI showcase' },
     Center = true,
     AutoShow = true,
     TabPadding = 8,
@@ -18,219 +21,134 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab('Main'),
-    Combat = Window:AddTab('Combat'),
-    Visuals = Window:AddTab('Visuals'),
-    ['UI Settings'] = Window:AddTab('UI Settings'),
+    Main = Window:AddTab('Showcase'),
+    Settings = Window:AddTab('UI Settings')
 }
 
--- main tab stuff
-local GeneralBox = Tabs.Main:AddLeftGroupbox('General')
+-- ==========================================
+-- SHOWCASE TAB
+-- ==========================================
 
-GeneralBox:AddToggle('SpeedBoost', {
-    Text = 'Speed Boost',
+local TogglesBox = Tabs.Main:AddLeftGroupbox('Toggles & Inputs')
+
+TogglesBox:AddToggle('ExampleToggle', {
+    Text = 'Standard Toggle',
     Default = false,
-    Tooltip = 'increases your walkspeed',
+    Tooltip = 'This is a tooltip containing extra info!',
 })
 
-Toggles.SpeedBoost:OnChanged(function()
-    local plr = game:GetService('Players').LocalPlayer
-    if plr and plr.Character and plr.Character:FindFirstChild('Humanoid') then
-        plr.Character.Humanoid.WalkSpeed = Toggles.SpeedBoost.Value and 32 or 16
-    end
-end)
-
-GeneralBox:AddSlider('WalkSpeed', {
-    Text = 'Walk Speed',
-    Default = 16,
-    Min = 16, Max = 100, Rounding = 0,
-    Suffix = ' studs/s',
-})
-
-Options.WalkSpeed:OnChanged(function()
-    if Toggles.SpeedBoost.Value then
-        local plr = game:GetService('Players').LocalPlayer
-        if plr and plr.Character and plr.Character:FindFirstChild('Humanoid') then
-            plr.Character.Humanoid.WalkSpeed = Options.WalkSpeed.Value
-        end
-    end
-end)
-
-GeneralBox:AddSlider('JumpPower', {
-    Text = 'Jump Power',
-    Default = 50,
-    Min = 50, Max = 200, Rounding = 0,
-})
-
-GeneralBox:AddDivider()
-
-GeneralBox:AddDropdown('Gamemode', {
-    Values = { 'Legit', 'Rage', 'Custom' },
-    Default = 1,
-    Text = 'Mode',
-    Tooltip = 'how you wanna play',
-})
-
-Options.Gamemode:OnChanged(function()
-    Library:Notify(('switched to %s mode'):format(Options.Gamemode.Value), 3)
-end)
-
--- keybind toggles. the widget auto-adds mobile tap buttons
-local FeaturesBox = Tabs.Main:AddRightGroupbox('Features')
-
-FeaturesBox:AddToggle('AutoSprint', {
-    Text = 'Auto Sprint',
+TogglesBox:AddToggle('KeybindToggle', {
+    Text = 'Toggle with Keybind',
     Default = false,
-}):AddKeyPicker('AutoSprintKey', {
-    Default = 'LeftShift',
-    SyncToggleState = true,
-    Mode = 'Toggle',
-    Text = 'Auto Sprint',
-})
-
-FeaturesBox:AddToggle('NoClip', {
-    Text = 'No Clip',
-    Default = false,
-    Risky = true,
-}):AddKeyPicker('NoClipKey', {
-    Default = 'N',
-    SyncToggleState = true,
-    Mode = 'Toggle',
-    Text = 'No Clip',
-})
-
-FeaturesBox:AddToggle('Fly', {
-    Text = 'Fly',
-    Default = false,
-    Risky = true,
-}):AddKeyPicker('FlyKey', {
+}):AddKeyPicker('ExampleKeybind', {
     Default = 'F',
     SyncToggleState = true,
     Mode = 'Toggle',
-    Text = 'Fly',
+    Text = 'Example Keybind',
 })
 
-FeaturesBox:AddDivider()
-
-FeaturesBox:AddInput('ChatMessage', {
-    Default = '',
-    Text = 'Auto Chat Message',
-    Placeholder = 'type something...',
-})
-
-FeaturesBox:AddLabel('Color'):AddColorPicker('ESPColor', {
-    Default = Color3.fromRGB(255, 182, 193),
-    Title = 'ESP Color',
+TogglesBox:AddToggle('ColorToggle', {
+    Text = 'Toggle with ColorPicker',
+    Default = true,
+}):AddColorPicker('ExampleColor', {
+    Default = Color3.fromRGB(0, 150, 255),
+    Title = 'Toggle Color',
     Transparency = 0,
 })
 
--- combat tab
-local AimbotBox = Tabs.Combat:AddLeftGroupbox('Aimbot')
+TogglesBox:AddDivider()
 
-AimbotBox:AddToggle('AimbotEnabled', {
-    Text = 'Enable Aimbot',
-    Default = false,
-}):AddKeyPicker('AimbotKey', {
-    Default = 'MB2',
-    Mode = 'Hold',
-    Text = 'Aimbot',
+TogglesBox:AddInput('ExampleInput', {
+    Default = 'Default text',
+    Numeric = false, 
+    Finished = false, 
+    Text = 'Custom Text Box',
+    Tooltip = 'Input custom strings here',
+    Placeholder = 'Placeholder text...',
 })
 
-AimbotBox:AddSlider('AimbotFOV', {
-    Text = 'FOV Radius',
-    Default = 120,
-    Min = 30, Max = 500, Rounding = 0,
-    Suffix = 'px',
+TogglesBox:AddInput('NumericInput', {
+    Default = '100',
+    Numeric = true,
+    Finished = false,
+    Text = 'Numeric Text Box',
+    Placeholder = 'Enter numbers...',
 })
 
-AimbotBox:AddDropdown('AimbotTarget', {
-    Values = { 'Head', 'Torso', 'Closest' },
+local SlidersBox = Tabs.Main:AddRightGroupbox('Sliders & Dropdowns')
+
+SlidersBox:AddSlider('ExampleSlider', {
+    Text = 'Standard Slider',
+    Default = 50,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+})
+
+SlidersBox:AddSlider('FloatSlider', {
+    Text = 'Float Slider',
+    Default = 2.5,
+    Min = 0,
+    Max = 5,
+    Rounding = 1,
+    Compact = false,
+    Suffix = ' multiplier',
+})
+
+SlidersBox:AddDivider()
+
+SlidersBox:AddDropdown('SingleDropdown', {
+    Values = { 'Option 1', 'Option 2', 'Option 3' },
     Default = 1,
-    Text = 'Target Part',
+    Multi = false,
+    Text = 'Single-Select Dropdown',
+    Tooltip = 'Select one option',
 })
 
-AimbotBox:AddSlider('Smoothness', {
-    Text = 'Smoothness',
-    Default = 5,
-    Min = 1, Max = 20, Rounding = 1,
-})
-
-local AutoBox = Tabs.Combat:AddRightGroupbox('Automation')
-
-AutoBox:AddToggle('AutoParry', {
-    Text = 'Auto Parry',
-    Default = false,
-}):AddKeyPicker('AutoParryKey', {
-    Default = 'P',
-    SyncToggleState = true,
-    Mode = 'Toggle',
-    Text = 'Auto Parry',
-})
-
-AutoBox:AddToggle('AutoAttack', { Text = 'Auto Attack', Default = false })
-
-AutoBox:AddSlider('AttackDelay', {
-    Text = 'Attack Delay',
-    Default = 0.1,
-    Min = 0, Max = 1, Rounding = 2,
-    Suffix = 's',
-})
-
-AutoBox:AddDivider()
-
-AutoBox:AddDropdown('MoveSpam', {
-    Values = { 'None', 'Combat Roll', 'Dash', 'Geppo' },
+SlidersBox:AddDropdown('MultiDropdown', {
+    Values = { 'Apple', 'Banana', 'Orange', 'Mango' },
     Default = 1,
     Multi = true,
-    Text = 'Move Spam',
+    Text = 'Multi-Select Dropdown',
 })
 
--- visuals tab
-local ESPBox = Tabs.Visuals:AddLeftGroupbox('ESP')
+local ButtonsBox = Tabs.Main:AddLeftGroupbox('Buttons & Tabboxes')
 
-ESPBox:AddToggle('ESPEnabled', { Text = 'Enable ESP', Default = false })
-ESPBox:AddToggle('ESPBoxes', { Text = 'Bounding Boxes', Default = true })
-ESPBox:AddToggle('ESPNames', { Text = 'Player Names', Default = true })
-ESPBox:AddToggle('ESPHealth', { Text = 'Health Bars', Default = false })
-
-ESPBox:AddLabel('Box Color'):AddColorPicker('BoxColor', {
-    Default = Color3.fromRGB(255, 255, 255),
-    Title = 'Box Color',
+ButtonsBox:AddButton({
+    Text = 'Standard Button',
+    Func = function()
+        Library:Notify('Standard button pressed!', 3)
+    end,
+    DoubleClick = false,
 })
 
-ESPBox:AddLabel('Name Color'):AddColorPicker('NameColor', {
-    Default = Color3.fromRGB(255, 182, 193),
-    Title = 'Name Color',
+ButtonsBox:AddButton({
+    Text = 'Double-Click Button',
+    Func = function()
+        Library:Notify('Double-click triggered!', 3)
+    end,
+    DoubleClick = true,
 })
 
--- conditional settings (dependency box showcase)
-local DepGroupbox = Tabs.Visuals:AddRightGroupbox('Conditional')
-DepGroupbox:AddToggle('AdvancedESP', { Text = 'Advanced ESP' })
+local ExampleTabbox = Tabs.Main:AddRightTabbox()
+local Tab1 = ExampleTabbox:AddTab('Nested Tab 1')
+local Tab2 = ExampleTabbox:AddTab('Nested Tab 2')
 
-local AdvancedDepbox = DepGroupbox:AddDependencyBox()
-AdvancedDepbox:AddSlider('TracerWidth', {
-    Text = 'Tracer Width',
-    Default = 1,
-    Min = 1, Max = 5, Rounding = 0,
-    Suffix = 'px',
-})
-AdvancedDepbox:AddDropdown('TracerOrigin', {
-    Text = 'Tracer Origin',
-    Default = 1,
-    Values = { 'Bottom', 'Center', 'Mouse' },
-})
-AdvancedDepbox:SetupDependencies({
-    { Toggles.AdvancedESP, true }
-})
+Tab1:AddToggle('NestedToggle1', { Text = 'Nested Toggle', Default = false })
+Tab2:AddSlider('NestedSlider2', { Text = 'Nested Slider', Default = 10, Min = 0, Max = 20, Rounding = 0 })
 
--- ui settings
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+-- ==========================================
+-- UI SETTINGS TAB
+-- ==========================================
+
+local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu')
 
 MenuGroup:AddButton({
-    Text = 'Unload',
+    Text = 'Unload Script',
     Func = function() Library:Unload() end,
     DoubleClick = true,
-    Tooltip = 'double-click to unload',
+    Tooltip = 'Double-click to completely unload the UI setup',
 })
 
 MenuGroup:AddLabel('Menu Keybind'):AddKeyPicker('MenuKeybind', {
@@ -239,13 +157,12 @@ MenuGroup:AddLabel('Menu Keybind'):AddKeyPicker('MenuKeybind', {
     Text = 'Menu keybind',
 })
 
--- widgets (leaderboard, chat log, viewmodel)
-local WidgetsBox = Tabs['UI Settings']:AddRightGroupbox('Widgets')
+local WidgetsBox = Tabs.Settings:AddRightGroupbox('Built-in Widgets')
 
 WidgetsBox:AddToggle('ShowLeaderboard', {
     Text = 'Leaderboard',
     Default = false,
-    Tooltip = 'click the circles to change priority',
+    Tooltip = 'Show Priority tagging system',
 })
 
 Toggles.ShowLeaderboard:OnChanged(function()
@@ -255,7 +172,7 @@ end)
 WidgetsBox:AddToggle('ShowChatLog', {
     Text = 'Chat Log',
     Default = false,
-    Tooltip = 'logs all chat messages',
+    Tooltip = 'Show chat messages and priority colors',
 })
 
 Toggles.ShowChatLog:OnChanged(function()
@@ -265,7 +182,7 @@ end)
 WidgetsBox:AddToggle('ShowViewmodel', {
     Text = 'Viewmodel',
     Default = false,
-    Tooltip = 'preview your character model',
+    Tooltip = 'Drag to rotate, scroll to zoom live viewmodel',
 })
 
 Toggles.ShowViewmodel:OnChanged(function()
@@ -275,32 +192,18 @@ end)
 WidgetsBox:AddDivider()
 
 WidgetsBox:AddButton({
-    Text = 'Refresh Leaderboard',
+    Text = 'Refresh Visuals',
     Func = function()
         Library:UpdateLeaderboard()
-    end,
-})
-
-WidgetsBox:AddButton({
-    Text = 'Refresh Viewmodel',
-    Func = function()
         Library:RefreshViewmodel()
+        Library:Notify('Refreshed visual widgets', 2)
     end,
 })
 
--- viewmodel chams example (hook it up to your esp system)
--- Library:AddViewmodelHighlight({ FillColor = Color3.new(1,0,0), FillTransparency = 0.5 })
--- Library:ClearViewmodelHighlights()
+-- ==========================================
+-- SCRIPT INITIALIZATION
+-- ==========================================
 
--- priority system notes:
--- click the colored circle next to a player name to cycle priority
--- None > Low > Med > Friend > Threat > Target > None
--- priorities save to file automatically
--- api: Library:SetPlayerPriority(player, level, label, color)
--- api: Library:GetPlayerPriority(player)
--- api: Library:CyclePlayerPriority(player)
-
--- watermark
 Library:SetWatermarkVisibility(true)
 
 local FrameTimer = tick()
@@ -315,35 +218,31 @@ local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(
         FrameCounter = 0
     end
 
-    Library:SetWatermark(('pretty.win | %s fps | %s ms'):format(
+    Library:SetWatermark(('linoria showcase | %s fps | %s ms'):format(
         math.floor(FPS),
         math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
     ))
 end)
 
--- show keybind widget
 Library.KeybindFrame.Visible = true
 
--- managers
 Library.ToggleKeybind = Options.MenuKeybind
-
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-ThemeManager:SetFolder('PrettyWin')
-SaveManager:SetFolder('PrettyWin/config')
+ThemeManager:SetFolder('LinoriaShowcase')
+SaveManager:SetFolder('LinoriaShowcase/config')
 
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
 
--- cleanup
 Library:OnUnload(function()
     WatermarkConnection:Disconnect()
-    print('unloaded')
+    print('Library correctly unloaded.')
     Library.Unloaded = true
 end)
