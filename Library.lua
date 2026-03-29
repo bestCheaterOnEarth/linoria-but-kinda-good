@@ -3583,7 +3583,7 @@ do
         BorderColor3 = Library.OutlineColor;
         Position = UDim2.new(1, -6, 0, 5);
         Size = UDim2.new(0, 16, 0, 14);
-        Text = '↻';
+        Text = '+';
         Font = Enum.Font.Gotham;
         TextSize = 12;
         TextColor3 = Library.FontColor;
@@ -3625,43 +3625,71 @@ do
         BackgroundColor3 = 'BackgroundColor';
     }, true);
 
+    local VMWorldModel = Instance.new('WorldModel');
+    VMWorldModel.Parent = VMViewport;
+
     local VMCamera = Instance.new('Camera');
     VMCamera.FieldOfView = 50;
     VMCamera.Parent = VMViewport;
     VMViewport.CurrentCamera = VMCamera;
 
-    -- clone character into viewport
-    -- also returns the model so scripts can attach highlights/chams
+    -- clone character into the viewport worldmodel
+    -- returns the model so scripts can attach highlights/chams to it
     Library.ViewmodelModel = nil;
 
     function Library:RefreshViewmodel()
-        -- clear old
+        -- clear old stuff
+        for _, child in next, VMWorldModel:GetChildren() do
+            child:Destroy();
+        end
         for _, child in next, VMViewport:GetChildren() do
-            if child:IsA('Model') or child:IsA('Highlight') then
+            if child:IsA('Highlight') then
                 child:Destroy();
             end
         end
+        Library.ViewmodelModel = nil;
 
         local player = Players.LocalPlayer;
         local character = player and player.Character;
         if not character then return end
 
-        pcall(function()
+        local success = pcall(function()
+            -- make sure we can clone it
+            local wasArchivable = character.Archivable;
+            character.Archivable = true;
             local clone = character:Clone();
-            -- strip scripts and unnecessary stuff
+            character.Archivable = wasArchivable;
+
+            -- strip everything that could cause issues
             for _, desc in next, clone:GetDescendants() do
-                if desc:IsA('BaseScript') or desc:IsA('LocalScript') or desc:IsA('Sound') then
-                    desc:Destroy();
+                if desc:IsA('BaseScript') or desc:IsA('LocalScript')
+                    or desc:IsA('Sound') or desc:IsA('ParticleEmitter')
+                    or desc:IsA('Trail') or desc:IsA('Beam')
+                    or desc:IsA('BillboardGui') or desc:IsA('ForceField') then
+                    pcall(function() desc:Destroy() end);
                 end
             end
-            clone.Parent = VMViewport;
+
+            -- anchor all parts so they don't fall
+            for _, part in next, clone:GetDescendants() do
+                if part:IsA('BasePart') then
+                    part.Anchored = true;
+                end
+            end
+
+            clone.Parent = VMWorldModel;
             Library.ViewmodelModel = clone;
 
-            -- position camera to look at the clone
+            -- position camera looking at the character
             local hrp = clone:FindFirstChild('HumanoidRootPart');
-            if hrp then
-                local cf = hrp.CFrame;
-                VMCamera.CFrame = CFrame.new(cf.Position + Vector3.new(0, 1.5, 6), cf.Position + Vector3.new(0, 0.5, 0));
+            local head = clone:FindFirstChild('Head');
+            local pivot = hrp or head;
+            if pivot then
+                local pos = pivot.Position;
+                VMCamera.CFrame = CFrame.new(
+                    pos + Vector3.new(3, 2, 5),
+                    pos + Vector3.new(0, 0, 0)
+                );
             end
         end)
     end
