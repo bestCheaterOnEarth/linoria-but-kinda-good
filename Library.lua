@@ -4082,8 +4082,10 @@ function Library:Notify(Text, Time)
     end
 
     for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
-        local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-        TweenService:Create(notif, tweenInfo, { Position = UDim2.new(0.5, 0, 0, (i - 1) * (YSize + 8) ) }):Play()
+        if notif:IsA("GuiObject") then 
+            local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TweenService:Create(notif, tweenInfo, { Position = UDim2.new(0.5, 0, 0, (i - 1) * (YSize + 8)) }):Play()
+        end
     end
 
     local NotifyOuter = Library:Create('Frame', {
