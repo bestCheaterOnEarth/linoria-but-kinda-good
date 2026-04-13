@@ -4077,34 +4077,34 @@ end;
 
 function Library:Notify(Text, Time)
     local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
-
     YSize = YSize + 7
 
     local notifications = {}
     for _, child in ipairs(Library.NotificationArea:GetChildren()) do
-        if child:IsA("Frame") then
+        if child:IsA("Frame") and child.Name == "Notification" then
             table.insert(notifications, child)
         end
     end
 
+    table.sort(notifications, function(a, b)
+        return a:GetAttribute("Timestamp") < b:GetAttribute("Timestamp")
+    end)
+
     if #notifications >= 5 then
-        notifications[1]:Destroy()
-        table.remove(notifications, 1)
+        local oldest = table.remove(notifications, 1)
+        oldest:Destroy()
     end
 
     local currentY = 0
     for i, notif in ipairs(notifications) do
-        local notifHeight = notif.Size.Y.Offset
-        if notifHeight == 0 then
-            notifHeight = YSize
-        end
         local targetPos = UDim2.new(0.5, 0, 0, currentY)
         local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         TweenService:Create(notif, tweenInfo, { Position = targetPos }):Play()
-        currentY = currentY + notifHeight + 8
+        currentY = currentY + notif.Size.Y.Offset + 8
     end
 
     local NotifyOuter = Library:Create('Frame', {
+        Name = "Notification";
         AnchorPoint = Vector2.new(0.5, 0);
         BorderColor3 = Color3.new(0, 0, 0);
         Position = UDim2.new(0.5, 0, 0, currentY);
@@ -4113,6 +4113,8 @@ function Library:Notify(Text, Time)
         ZIndex = 100;
         Parent = Library.NotificationArea;
     });
+    
+    NotifyOuter:SetAttribute("Timestamp", tick())
 
     local NotifyInner = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
@@ -4197,7 +4199,7 @@ function Library:Notify(Text, Time)
     end
 
     task.spawn(function()
-        wait(Time or 5);
+        task.wait(Time or 5);
 
         local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In);
         TweenService:Create(NotifyInner, fadeInfo, { BackgroundTransparency = 1 }):Play();
@@ -4211,22 +4213,26 @@ function Library:Notify(Text, Time)
             end
         end
 
-        wait(0.4);
-
+        task.wait(0.4);
         NotifyOuter:Destroy()
 
-        local newY = 0
-        for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
-            if notif:IsA("Frame") then
-                local notifHeight = notif.Size.Y.Offset
-                if notifHeight == 0 then
-                    notifHeight = YSize
-                end
-                local targetPos = UDim2.new(0.5, 0, 0, newY)
-                local moveTween = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                TweenService:Create(notif, moveTween, { Position = targetPos }):Play()
-                newY = newY + notifHeight + 8
+        local activeNotifications = {}
+        for _, child in ipairs(Library.NotificationArea:GetChildren()) do
+            if child:IsA("Frame") and child.Name == "Notification" then
+                table.insert(activeNotifications, child)
             end
+        end
+
+        table.sort(activeNotifications, function(a, b)
+            return a:GetAttribute("Timestamp") < b:GetAttribute("Timestamp")
+        end)
+
+        local newY = 0
+        for _, notif in ipairs(activeNotifications) do
+            local targetPos = UDim2.new(0.5, 0, 0, newY)
+            local moveTween = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TweenService:Create(notif, moveTween, { Position = targetPos }):Play()
+            newY = newY + notif.Size.Y.Offset + 8
         end
     end);
 end;
