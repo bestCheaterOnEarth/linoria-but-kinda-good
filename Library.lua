@@ -4079,14 +4079,24 @@ function Library:Notify(Text, Time)
     YSize = YSize + 7
 
     local notifications = Library.NotificationArea:GetChildren()
-        if #notifications >= 5 then
-            notifications[1]:Destroy()
-        end
+    if #notifications >= 5 then
+        notifications[1]:Destroy()
+        notifications = Library.NotificationArea:GetChildren()
+    end
+
+    local currentY = 0
+    for i, notif in ipairs(notifications) do
+        local notifHeight = notif.AbsoluteSize.Y
+        local targetPos = UDim2.new(0.5, 0, 0, currentY)
+        local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        TweenService:Create(notif, tweenInfo, { Position = targetPos }):Play()
+        currentY = currentY + notifHeight + 8
+    end
 
     local NotifyOuter = Library:Create('Frame', {
         AnchorPoint = Vector2.new(0.5, 0);
         BorderColor3 = Color3.new(0, 0, 0);
-        Position = UDim2.new(0.5, 0, 0, 0);
+        Position = UDim2.new(0.5, 0, 0, currentY);
         Size = UDim2.new(0, XSize + 16, 0, YSize);
         BackgroundTransparency = 1;
         ZIndex = 100;
@@ -4162,14 +4172,12 @@ function Library:Notify(Text, Time)
         BackgroundColor3 = 'AccentColor';
     }, true);
 
-    -- Slide up + fade in animation
     local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out);
     TweenService:Create(NotifyInner, tweenInfo, { BackgroundTransparency = 0 }):Play();
     TweenService:Create(InnerFrame, tweenInfo, { BackgroundTransparency = 0 }):Play();
     TweenService:Create(NotifyLabel, tweenInfo, { TextTransparency = 0 }):Play();
     TweenService:Create(BottomColor, tweenInfo, { BackgroundTransparency = 0 }):Play();
 
-    -- Also fade the UIStroke on the label
     for _, child in next, NotifyLabel:GetChildren() do
         if child:IsA('UIStroke') then
             child.Transparency = 1;
@@ -4180,7 +4188,6 @@ function Library:Notify(Text, Time)
     task.spawn(function()
         wait(Time or 5);
 
-        -- Fade out animation
         local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In);
         TweenService:Create(NotifyInner, fadeInfo, { BackgroundTransparency = 1 }):Play();
         TweenService:Create(InnerFrame, fadeInfo, { BackgroundTransparency = 1 }):Play();
@@ -4195,7 +4202,26 @@ function Library:Notify(Text, Time)
 
         wait(0.4);
 
-        NotifyOuter:Destroy();
+        local notifToRemove = NotifyOuter
+        local removeIndex = 0
+        
+        for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
+            if notif == notifToRemove then
+                removeIndex = i
+                break
+            end
+        end
+
+        notifToRemove:Destroy()
+
+        local newY = 0
+        for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
+            local notifHeight = notif.AbsoluteSize.Y
+            local targetPos = UDim2.new(0.5, 0, 0, newY)
+            local moveTween = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TweenService:Create(notif, moveTween, { Position = targetPos }):Play()
+            newY = newY + notifHeight + 8
+        end
     end);
 end;
 
