@@ -4073,6 +4073,8 @@ end;
 
 
 
+--HOLY BRO JUST FIX THAT
+
 function Library:Notify(Text, Time)
     local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
 
@@ -4086,7 +4088,10 @@ function Library:Notify(Text, Time)
 
     local currentY = 0
     for i, notif in ipairs(notifications) do
-        local notifHeight = notif.AbsoluteSize.Y
+        local notifHeight = notif.Size.Y.Offset
+        if notifHeight == 0 then
+            notifHeight = YSize
+        end
         local targetPos = UDim2.new(0.5, 0, 0, currentY)
         local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         TweenService:Create(notif, tweenInfo, { Position = targetPos }):Play()
@@ -4202,21 +4207,14 @@ function Library:Notify(Text, Time)
 
         wait(0.4);
 
-        local notifToRemove = NotifyOuter
-        local removeIndex = 0
-        
-        for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
-            if notif == notifToRemove then
-                removeIndex = i
-                break
-            end
-        end
-
-        notifToRemove:Destroy()
+        NotifyOuter:Destroy()
 
         local newY = 0
         for i, notif in ipairs(Library.NotificationArea:GetChildren()) do
-            local notifHeight = notif.AbsoluteSize.Y
+            local notifHeight = notif.Size.Y.Offset
+            if notifHeight == 0 then
+                notifHeight = YSize
+            end
             local targetPos = UDim2.new(0.5, 0, 0, newY)
             local moveTween = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             TweenService:Create(notif, moveTween, { Position = targetPos }):Play()
